@@ -85,7 +85,6 @@ export class MergePanel {
       type: "init",
       relativePath: this.file.relativePath,
       ours,
-      base,
       theirs,
       oursLabel: branches.ours,
       theirsLabel: branches.theirs,
@@ -125,12 +124,7 @@ export class MergePanel {
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const engine = vscode.workspace
-      .getConfiguration("mergeResolver")
-      .get<string>("engine", "monaco");
-    return engine === "codemirror"
-      ? this.getCodeMirrorHtml(webview)
-      : this.getMonacoHtml(webview);
+    return this.getMonacoHtml(webview);
   }
 
   private csp(webview: vscode.Webview, nonce: string): string {
@@ -148,30 +142,6 @@ export class MergePanel {
     return webview
       .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "dist", file))
       .toString();
-  }
-
-  private getCodeMirrorHtml(webview: vscode.Webview): string {
-    const nonce = getNonce();
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="${this.csp(webview, nonce)}" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="${this.asset(webview, "webview-cm.css")}" rel="stylesheet" />
-  <title>Merge Resolver (CodeMirror)</title>
-</head>
-<body>
-  <div id="toolbar">
-    <span id="title"></span>
-    <span class="tb-label">Yours ◂ Result ▸ Theirs — use the ◂ ▸ arrows to apply a side</span>
-    <span class="spacer"></span>
-    <button id="save" class="primary" title="Save & stage">Save &amp; Stage</button>
-  </div>
-  <div id="mergeview"></div>
-  <script nonce="${nonce}" src="${this.asset(webview, "webview-cm.js")}"></script>
-</body>
-</html>`;
   }
 
   private getMonacoHtml(webview: vscode.Webview): string {

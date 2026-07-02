@@ -86,21 +86,6 @@
           "group": "inline@1"
         }
       ]
-    },
-    "configuration": {
-      "title": "Merge Resolver",
-      "properties": {
-        "mergeResolver.engine": {
-          "type": "string",
-          "enum": ["monaco", "codemirror"],
-          "enumDescriptions": [
-            "Custom Monaco-based 3-pane merge view (Stage A/B).",
-            "CodeMirror 5 MergeView — built-in 3-way merge with connecting bars and revert arrows."
-          ],
-          "default": "monaco",
-          "description": "Which rendering engine to use for the 3-way merge view."
-        }
-      }
     }
   },
   "scripts": {
@@ -111,7 +96,6 @@
     "package": "npm run build && vsce package"
   },
   "devDependencies": {
-    "@types/codemirror": "^5.60.15",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.0.0",
@@ -119,8 +103,6 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
-    "codemirror": "^5.65.18",
-    "diff-match-patch": "^1.0.5",
     "monaco-editor": "^0.52.0",
     "node-diff3": "^3.1.2"
   }

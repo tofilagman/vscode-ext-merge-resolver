@@ -43,12 +43,6 @@ for any conflict git records, without parsing `<<<<<<<` markers out of the file.
 3. Resolve each change with the gutter arrows (or the Apply buttons), then
    **Save & Stage**.
 
-## Settings
-
-| Setting | Default | Description |
-|---|---|---|
-| `mergeResolver.engine` | `monaco` | Rendering engine. `monaco` is the full-featured view; `codemirror` uses CodeMirror 5's built-in `MergeView` as a lighter alternative. |
-
 ## Development
 
 ```bash

@@ -41,7 +41,6 @@ export type HostMessage = {
   type: "init";
   relativePath: string;
   ours: string;
-  base: string;
   theirs: string;
   /** Branch labels for the pane headers, e.g. "main" / "feature". */
   oursLabel: string;

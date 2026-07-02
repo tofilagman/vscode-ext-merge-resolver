@@ -33,22 +33,6 @@ const webviewConfig = {
   logLevel: "info",
 };
 
-/** Alternative CodeMirror 5 MergeView webview bundle. */
-const webviewCmConfig = {
-  entryPoints: ["webview/index-cm.ts"],
-  bundle: true,
-  outfile: "dist/webview-cm.js",
-  platform: "browser",
-  format: "iife",
-  target: "es2020",
-  sourcemap: !production,
-  minify: production,
-  loader: {
-    ".ttf": "file",
-  },
-  logLevel: "info",
-};
-
 /** Monaco's editor worker, loaded by the webview at runtime. */
 const workerConfig = {
   entryPoints: ["node_modules/monaco-editor/esm/vs/editor/editor.worker.js"],
@@ -63,7 +47,7 @@ const workerConfig = {
 };
 
 async function main() {
-  const configs = [extensionConfig, webviewConfig, webviewCmConfig, workerConfig];
+  const configs = [extensionConfig, webviewConfig, workerConfig];
   if (watch) {
     const ctxs = await Promise.all(configs.map((c) => esbuild.context(c)));
     await Promise.all(ctxs.map((c) => c.watch()));
