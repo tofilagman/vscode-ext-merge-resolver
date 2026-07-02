@@ -311,6 +311,38 @@ function applyNonConflicting(which: "left" | "right" | "all"): void {
   scheduleRedraw();
 }
 
+/** Discard every accept/ignore and rebuild the Result as pure base. */
+function resetAll(): void {
+  for (const b of blocks) {
+    b.applied = [];
+    b.ignoredOurs = false;
+    b.ignoredTheirs = false;
+  }
+  const lines: string[] = [];
+  const spans: { start: number; end: number }[] = [];
+  for (const b of blocks) {
+    const seed = b.base.length ? b.base : b.isChange ? [""] : b.base;
+    const start = lines.length + 1;
+    lines.push(...seed);
+    spans.push({ start, end: lines.length });
+  }
+  resultModel.setValue(lines.join("\n"));
+  const ids = resultModel.deltaDecorations(
+    blocks.map((b) => b.resultId),
+    spans.map((s) => ({
+      range: new monaco.Range(s.start, 1, s.end, 1),
+      options: {
+        isWholeLine: true,
+        stickiness: monaco.editor.TrackedRangeStickiness.GrowsOnlyWhenTypingBefore,
+      },
+    }))
+  );
+  blocks.forEach((b, i) => (b.resultId = ids[i]));
+  current = blocks.findIndex((b) => b.isChange);
+  render();
+  scheduleRedraw();
+}
+
 // ---------------------------------------------------------------------------
 // Rendering (decorations + word-level highlight)
 // ---------------------------------------------------------------------------
@@ -832,6 +864,11 @@ function drawBandsSafe(): void {
 // ---------------------------------------------------------------------------
 
 function save(): void {
+  // Never stage a file that still has unresolved changes.
+  const unresolved = blocks.some((b) => b.isChange && !isResolved(b));
+  if (unresolved) {
+    return;
+  }
   vscode.postMessage({ type: "save", content: resultModel.getValue() });
 }
 
@@ -841,23 +878,74 @@ function wireToolbar(): void {
   document.getElementById("apply-left")!.addEventListener("click", () => applyNonConflicting("left"));
   document.getElementById("apply-all")!.addEventListener("click", () => applyNonConflicting("all"));
   document.getElementById("apply-right")!.addEventListener("click", () => applyNonConflicting("right"));
+  document.getElementById("reset")?.addEventListener("click", resetAll);
   document.getElementById("save")!.addEventListener("click", save);
   document.getElementById("toast-save")?.addEventListener("click", save);
 }
 
+function setCount(id: string, n: number): void {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = n > 0 ? String(n) : "";
+  }
+}
+function setEnabled(id: string, enabled: boolean): void {
+  const el = document.getElementById(id) as HTMLButtonElement | null;
+  if (el) {
+    el.disabled = !enabled;
+  }
+}
+
 function updateStatus(): void {
   const changeBlocks = blocks.filter((b) => b.isChange);
+  const total = changeBlocks.length;
   const remaining = changeBlocks.filter((b) => !isResolved(b));
-  const conflicts = remaining.filter((b) => b.type === "conflict").length;
-  document.getElementById("status")!.textContent =
-    `${remaining.length} change${remaining.length === 1 ? "" : "s"}. ${conflicts} conflict${conflicts === 1 ? "" : "s"}.`;
+  const resolvedCount = total - remaining.length;
+  const conflictsLeft = remaining.filter((b) => b.type === "conflict").length;
 
-  // Green "all processed" toast once every change has been handled.
-  const toast = document.getElementById("done-toast");
-  if (toast) {
-    const allDone = changeBlocks.length > 0 && remaining.length === 0;
-    toast.classList.toggle("hidden", !allDone);
+  // Applicable non-conflicting counts (mirror applyNonConflicting semantics).
+  let left = 0;
+  let right = 0;
+  for (const b of remaining) {
+    if (b.type === "left" || b.type === "both") {
+      left++;
+    } else if (b.type === "right") {
+      right++;
+    }
   }
+  const all = left + right;
+
+  setCount("cnt-left", left);
+  setCount("cnt-right", right);
+  setCount("cnt-all", all);
+  setEnabled("apply-left", left > 0);
+  setEnabled("apply-right", right > 0);
+  setEnabled("apply-all", all > 0);
+  setEnabled("prev", total > 0);
+  setEnabled("next", total > 0);
+
+  const touched = blocks.some((b) => b.applied.length > 0 || b.ignoredOurs || b.ignoredTheirs);
+  setEnabled("reset", touched);
+
+  const allDone = total > 0 && remaining.length === 0;
+  const progress = document.getElementById("progress");
+  if (progress) {
+    progress.textContent =
+      total === 0
+        ? "No changes"
+        : `${resolvedCount} / ${total} resolved` +
+          (conflictsLeft ? ` · ${conflictsLeft} conflict${conflictsLeft === 1 ? "" : "s"} left` : "");
+    progress.classList.toggle("done", allDone);
+  }
+
+  // Save & Stage only works once every change is resolved.
+  setEnabled("save", remaining.length === 0);
+  document.getElementById("save")?.classList.toggle("done", allDone);
+  document.getElementById("save")?.setAttribute(
+    "title",
+    remaining.length === 0 ? "Save & stage" : `Resolve ${remaining.length} remaining change${remaining.length === 1 ? "" : "s"} to enable`
+  );
+  document.getElementById("done-toast")?.classList.toggle("hidden", !allDone);
 }
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {

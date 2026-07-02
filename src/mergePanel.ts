@@ -180,6 +180,17 @@ export class MergePanel {
     const styleUri = this.asset(webview, "webview.css");
     const csp = this.csp(webview, nonce);
 
+    const ic = (p: string) => `<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">${p}</svg>`;
+    const icons = {
+      up: ic('<path d="M4 10l4-4 4 4"/>'),
+      down: ic('<path d="M4 6l4 4 4-4"/>'),
+      dblRight: ic('<path d="M3 4l4 4-4 4"/><path d="M8 4l4 4-4 4"/>'),
+      dblLeft: ic('<path d="M13 4l-4 4 4 4"/><path d="M8 4l-4 4 4 4"/>'),
+      dblBoth: ic('<path d="M7 4l-3 4 3 4"/><path d="M9 4l3 4-3 4"/>'),
+      reset: ic('<path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2"/><path d="M12.5 2.5v3h-3"/>'),
+      check: ic('<path d="M3.5 8.5l3 3 6-7"/>'),
+    };
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -191,16 +202,22 @@ export class MergePanel {
 </head>
 <body>
   <div id="toolbar">
-    <button id="prev" class="icon" title="Previous change">↑</button>
-    <button id="next" class="icon" title="Next change">↓</button>
-    <span class="sep"></span>
-    <span class="tb-label">Apply non-conflicting changes:</span>
-    <button id="apply-left" title="Apply non-conflicting changes from the left">» Left</button>
-    <button id="apply-all" title="Apply all non-conflicting changes">«» All</button>
-    <button id="apply-right" title="Apply non-conflicting changes from the right">« Right</button>
+    <div class="tb-group">
+      <button id="prev" class="tb-btn tb-icon" title="Previous unresolved change">${icons.up}</button>
+      <button id="next" class="tb-btn tb-icon" title="Next unresolved change">${icons.down}</button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <span class="tb-label">Apply non-conflicting:</span>
+      <button id="apply-left" class="tb-btn" title="Apply non-conflicting changes from the left">${icons.dblRight}<span>Left</span><span class="tb-count" id="cnt-left"></span></button>
+      <button id="apply-all" class="tb-btn" title="Apply all non-conflicting changes">${icons.dblBoth}<span>All</span><span class="tb-count" id="cnt-all"></span></button>
+      <button id="apply-right" class="tb-btn" title="Apply non-conflicting changes from the right">${icons.dblLeft}<span>Right</span><span class="tb-count" id="cnt-right"></span></button>
+    </div>
+    <div class="tb-sep"></div>
+    <button id="reset" class="tb-btn" title="Reset all — discard every accept/ignore and return to base">${icons.reset}<span>Reset</span></button>
     <span class="spacer"></span>
-    <span id="status"></span>
-    <button id="save" class="primary" title="Save & stage">Save &amp; Stage</button>
+    <span id="progress" class="tb-progress"></span>
+    <button id="save" class="primary" title="Save &amp; stage">${icons.check}<span>Save &amp; Stage</span></button>
   </div>
   <div id="headers">
     <div class="header" id="ours-title">Changes</div>

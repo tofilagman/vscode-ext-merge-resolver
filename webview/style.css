@@ -13,63 +13,139 @@ body {
 #toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
+  gap: 4px;
+  padding: 4px 10px;
   border-bottom: 1px solid var(--vscode-panel-border, #444);
-  height: 32px;
+  height: 34px;
   box-sizing: border-box;
   font-size: 12px;
 }
 
-.tb-label {
-  opacity: 0.8;
-  margin-left: 4px;
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
-.sep {
+.tb-label {
+  opacity: 0.7;
+  margin: 0 4px 0 2px;
+}
+
+.tb-sep {
   width: 1px;
-  height: 18px;
+  align-self: stretch;
+  margin: 5px 5px;
   background: var(--vscode-panel-border, #555);
-  margin: 0 4px;
 }
 
 .spacer {
   flex: 1;
 }
 
-#status {
+.tb-progress {
   opacity: 0.85;
-  margin-right: 6px;
+  margin-right: 8px;
   white-space: nowrap;
 }
+.tb-progress.done {
+  color: #7ee787;
+  opacity: 1;
+  font-weight: 600;
+}
 
-#toolbar button {
+.ic {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: var(--vscode-button-secondaryBackground, #3a3d41);
   color: var(--vscode-button-secondaryForeground, #fff);
-  border: none;
+  border: 1px solid transparent;
   padding: 3px 9px;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
   white-space: nowrap;
 }
 
-#toolbar button:hover {
+.tb-btn:hover:not(:disabled) {
   background: var(--vscode-button-secondaryHoverBackground, #45494e);
 }
 
-#toolbar button.icon {
-  padding: 3px 7px;
-  font-size: 13px;
+.tb-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tb-btn.tb-icon {
+  padding: 4px 6px;
+}
+
+.tb-count {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+.tb-count:empty {
+  display: none;
 }
 
 #toolbar button.primary {
   background: var(--vscode-button-background, #0e639c);
   color: var(--vscode-button-foreground, #fff);
+  font-weight: 600;
+  padding: 3px 12px;
+  transition: background 0.15s ease, box-shadow 0.2s ease, opacity 0.15s ease;
 }
 
-#toolbar button.primary:hover {
+#toolbar button.primary:hover:not(:disabled) {
   background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+/* Blocked until every change is resolved. */
+#toolbar button.primary:disabled {
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ccc);
+  opacity: 0.5;
+  cursor: not-allowed;
+  font-weight: 500;
+}
+
+/* Save lights up green once every change is resolved. */
+#toolbar button.primary.done:not(:disabled) {
+  background: #2e7a3e;
+  animation: save-ready-pulse 1.9s ease-in-out infinite;
+}
+#toolbar button.primary.done:not(:disabled):hover {
+  background: #368047;
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(126, 231, 135, 0.4);
+}
+
+@keyframes save-ready-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(126, 231, 135, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(126, 231, 135, 0.12);
+  }
 }
 
 /* ---------------------------------------------------------------- headers */
