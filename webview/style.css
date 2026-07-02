@@ -1,0 +1,291 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family, sans-serif);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- toolbar */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border, #444);
+  height: 32px;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.tb-label {
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
+.sep {
+  width: 1px;
+  height: 18px;
+  background: var(--vscode-panel-border, #555);
+  margin: 0 4px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+#status {
+  opacity: 0.85;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+#toolbar button {
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #fff);
+  border: none;
+  padding: 3px 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#toolbar button:hover {
+  background: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+#toolbar button.icon {
+  padding: 3px 7px;
+  font-size: 13px;
+}
+
+#toolbar button.primary {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+#toolbar button.primary:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+/* ---------------------------------------------------------------- headers */
+#headers {
+  display: flex;
+  border-bottom: 1px solid var(--vscode-panel-border, #444);
+}
+
+.header {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 12px;
+  font-size: 12px;
+  opacity: 0.85;
+  border-right: 1px solid var(--vscode-panel-border, #444);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header:last-child {
+  border-right: none;
+}
+
+.header.center {
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ panes */
+#panes {
+  display: flex;
+  height: calc(100% - 32px - 27px);
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Inter-pane gutters host the connecting ribbons. */
+.gutter {
+  flex: 0 0 34px;
+  position: relative;
+  overflow: hidden;
+  background: var(--vscode-editorGutter-background, var(--vscode-editor-background));
+  border-left: 1px solid var(--vscode-panel-border, #444);
+  border-right: 1px solid var(--vscode-panel-border, #444);
+}
+
+.gutter svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Blank alignment padding inserted via Monaco view zones. */
+.align-zone {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 5px,
+    rgba(127, 127, 127, 0.06) 5px,
+    rgba(127, 127, 127, 0.06) 10px
+  );
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+}
+
+/* -------------------------------------------------- change highlighting */
+/* Non-conflicting changes: green. Conflicts: red/brown. Resolved: faded. */
+.chg-nonconflict,
+.side-nonconflict {
+  background: rgba(87, 171, 90, 0.16);
+}
+
+.chg-conflict,
+.side-conflict {
+  background: rgba(196, 90, 74, 0.2);
+}
+
+.chg-resolved,
+.side-resolved {
+  background: rgba(120, 120, 120, 0.1);
+}
+
+.chg-current,
+.side-current {
+  box-shadow: inset 2px 0 0 var(--vscode-focusBorder, #4daafc);
+}
+
+/* --------------------------------------------- gutter action affordances */
+.act-apply-ours,
+.act-apply-ours-insert,
+.act-apply-theirs,
+.act-apply-theirs-insert,
+.act-ignore {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.act-apply-ours::before,
+.act-apply-ours-insert::before {
+  content: "»";
+  color: #57ab5a;
+  font-size: 15px;
+}
+
+.act-apply-theirs::before,
+.act-apply-theirs-insert::before {
+  content: "«";
+  color: #57ab5a;
+  font-size: 15px;
+}
+
+/* Insert (not replace): rotate the arrow diagonally toward the insertion line
+   below the already-accepted content. */
+.act-apply-ours-insert::before {
+  transform: rotate(45deg);
+}
+.act-apply-theirs-insert::before {
+  transform: rotate(-45deg);
+}
+
+.act-ignore::before {
+  content: "✕";
+  color: var(--vscode-descriptionForeground, #999);
+  font-size: 11px;
+}
+
+.act-apply-ours:hover::before,
+.act-apply-theirs:hover::before {
+  color: #7ee787;
+  transform: scale(1.25);
+}
+.act-apply-ours-insert:hover::before {
+  color: #7ee787;
+  transform: rotate(45deg) scale(1.25);
+}
+.act-apply-theirs-insert:hover::before {
+  color: #7ee787;
+  transform: rotate(-45deg) scale(1.25);
+}
+
+.act-ignore:hover::before {
+  color: var(--vscode-errorForeground, #f85149);
+}
+
+/* Thin line in the Result marking where the next accepted side will be inserted. */
+.mr-insert-line {
+  box-shadow: inset 0 -2px 0 0 rgba(87, 171, 90, 0.9);
+}
+
+/* --------------------------------------------- word-level highlighting */
+.word-diff {
+  background: rgba(255, 214, 102, 0.28);
+  border-radius: 2px;
+}
+
+/* ------------------------------------------- "all processed" green toast */
+.toast {
+  position: absolute;
+  top: 74px; /* below toolbar (32) + headers (~27) with a little gap */
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: rgba(45, 122, 62, 0.96);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(126, 231, 135, 0.6);
+  z-index: 20;
+  opacity: 1;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-16px);
+  pointer-events: none;
+}
+
+.toast-check {
+  font-weight: bold;
+  color: #b6f0bd;
+  font-size: 15px;
+}
+
+.toast-text {
+  font-weight: 600;
+}
+
+#toast-save {
+  background: #fff;
+  color: #1b5e2a;
+  border: none;
+  padding: 3px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#toast-save:hover {
+  background: #eafbec;
+}
