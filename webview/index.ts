@@ -67,7 +67,7 @@ let oursZoneIds: string[] = [];
 let resultZoneIds: string[] = [];
 let theirsZoneIds: string[] = [];
 
-const GUTTER_W = 34;
+const GUTTER_W = 52;
 
 function fileUri(path: string): monaco.Uri {
   return monaco.Uri.file(path);
@@ -140,6 +140,7 @@ function setup(init: HostMessage): void {
     glyphMargin: true,
     lineDecorationsWidth: 22,
     overviewRulerLanes: 0,
+    folding: false,
   };
 
   oursEditor = monaco.editor.create(document.getElementById("ours")!, { ...common, model: oursModel, readOnly: true });
@@ -637,16 +638,22 @@ function regionY(
   scroll: number
 ): { top: number; bottom: number } {
   const top = editor.getTopForLineNumber(start) - scroll;
-  const bottom = len > 0 ? editor.getTopForLineNumber(start + len) - scroll : top;
+  // Use the last *content* line's bottom, NOT getTopForLineNumber(start+len):
+  // alignment view zones are inserted after a region, and the next line's top
+  // sits below that padding — which would inflate a short region to full height
+  // and flatten the ribbon into a rectangle instead of a curved wedge.
+  const lh = editor.getOption(monaco.editor.EditorOption.lineHeight);
+  const bottom = len > 0 ? editor.getTopForLineNumber(start + len - 1) - scroll + lh : top;
   return { top, bottom };
 }
 
 function fillFor(type: Block["type"], resolved: boolean): string {
   if (resolved) {
-    return "rgba(120,120,120,0.12)";
+    return "rgba(120,120,120,0.18)";
   }
-  return type === "conflict" ? "rgba(196,90,74,0.22)" : "rgba(87,171,90,0.2)";
+  return type === "conflict" ? "rgba(196,90,74,0.45)" : "rgba(87,171,90,0.42)";
 }
+
 
 function drawBands(): void {
   const svgL = document.getElementById("svg-l") as unknown as SVGSVGElement | null;
@@ -686,11 +693,25 @@ function drawBands(): void {
   });
 }
 
-/** A trapezoid from the left edge (l0..l1) to the right edge (r0..r1). */
-function ribbon(l0: number, l1: number, r0: number, r1: number, w: number, fill: string): SVGPolygonElement {
-  const p = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  const pts = `0,${l0.toFixed(1)} 0,${Math.max(l1, l0 + 1).toFixed(1)} ${w},${Math.max(r1, r0 + 1).toFixed(1)} ${w},${r0.toFixed(1)}`;
-  p.setAttribute("points", pts);
+/**
+ * A ribbon from the left edge (l0..l1) to the right edge (r0..r1), with the top
+ * and bottom edges drawn as cubic Béziers (control points at mid-x) so the
+ * connectors curve smoothly like the native diff editor's, instead of sloping
+ * straight.
+ */
+function ribbon(l0: number, l1: number, r0: number, r1: number, w: number, fill: string): SVGPathElement {
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const lb = Math.max(l1, l0 + 1); // left-bottom (min 1px tall)
+  const rb = Math.max(r1, r0 + 1); // right-bottom
+  const cx = (w / 2).toFixed(1);
+  const f = (n: number) => n.toFixed(1);
+  const d =
+    `M0,${f(l0)} ` +
+    `C${cx},${f(l0)} ${cx},${f(r0)} ${w},${f(r0)} ` + // top edge, left→right
+    `L${w},${f(rb)} ` +
+    `C${cx},${f(rb)} ${cx},${f(lb)} 0,${f(lb)} ` + // bottom edge, right→left
+    `Z`;
+  p.setAttribute("d", d);
   p.setAttribute("fill", fill);
   return p;
 }

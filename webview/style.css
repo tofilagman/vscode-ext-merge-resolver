@@ -189,7 +189,7 @@ body {
 
 /* Inter-pane gutters host the connecting ribbons. */
 .gutter {
-  flex: 0 0 34px;
+  flex: 0 0 52px;
   position: relative;
   overflow: hidden;
   background: var(--vscode-editorGutter-background, var(--vscode-editor-background));
