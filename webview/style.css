@@ -1,3 +1,29 @@
+:root {
+  /* Semantic palette (adapted from jadsonbr/git-conflict-resolver). Sides are
+     colored by origin: OURS is pink, THEIRS is green. Conflicts are yellow so
+     they still stand out from ordinary one-sided changes; removals are red. */
+  --color-ours: #f472d0;
+  --color-theirs: #4ade80;
+  --color-conflict: #fbbf24;
+  --color-remove: #f87171;
+  --color-done: #7ee787;
+
+  /* Translucent tints for line backgrounds. */
+  --bg-ours: rgba(244, 114, 208, 0.13);
+  --bg-ours-active: rgba(244, 114, 208, 0.26);
+  --bg-theirs: rgba(74, 222, 128, 0.13);
+  --bg-theirs-active: rgba(74, 222, 128, 0.26);
+  --bg-conflict: rgba(251, 191, 36, 0.14);
+  --bg-conflict-active: rgba(251, 191, 36, 0.28);
+  --bg-resolved: rgba(120, 120, 120, 0.1);
+
+  --radius: 4px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 html,
 body {
   height: 100%;
@@ -49,7 +75,7 @@ body {
   white-space: nowrap;
 }
 .tb-progress.done {
-  color: #7ee787;
+  color: var(--color-done);
   opacity: 1;
   font-weight: 600;
 }
@@ -73,7 +99,7 @@ body {
   color: var(--vscode-button-secondaryForeground, #fff);
   border: 1px solid transparent;
   padding: 3px 9px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-size: 12px;
   white-space: nowrap;
@@ -90,6 +116,21 @@ body {
 
 .tb-btn.tb-icon {
   padding: 4px 6px;
+}
+
+/* Left brings OURS (pink), Right brings THEIRS (green) — tint their accents so
+   the toolbar echoes the pane colors. */
+#apply-left:not(:disabled) {
+  box-shadow: inset 3px 0 0 var(--color-ours);
+}
+#apply-left:hover:not(:disabled) {
+  background: var(--bg-ours-active);
+}
+#apply-right:not(:disabled) {
+  box-shadow: inset -3px 0 0 var(--color-theirs);
+}
+#apply-right:hover:not(:disabled) {
+  background: var(--bg-theirs-active);
 }
 
 .tb-count {
@@ -174,6 +215,14 @@ body {
   text-align: center;
 }
 
+/* Tie the pane labels to the side palette: ours pink, theirs green. */
+.header:first-child {
+  box-shadow: inset 0 -2px 0 var(--color-ours);
+}
+.header:last-child {
+  box-shadow: inset 0 -2px 0 var(--color-theirs);
+}
+
 /* ------------------------------------------------------------------ panes */
 #panes {
   display: flex;
@@ -185,6 +234,7 @@ body {
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  position: relative; /* positioning context for the in-pane ✕ overlays */
 }
 
 /* Inter-pane gutters host the connecting ribbons. */
@@ -222,90 +272,154 @@ body {
 }
 
 /* -------------------------------------------------- change highlighting */
-/* Non-conflicting changes: green. Conflicts: red/brown. Resolved: faded. */
-.chg-nonconflict,
-.side-nonconflict {
-  background: rgba(87, 171, 90, 0.16);
-}
+/* "Satin glass": a translucent tint with a 3px colored accent bar. Side panes
+   are colored by origin (ours pink / theirs green); the Result pane shows
+   pending non-conflicts green and conflicts yellow. The active block brightens.
+   Resolved changes fade to gray. */
 
-.chg-conflict,
+/* --- side panes (ours / theirs) --- */
+.side-ours {
+  background: var(--bg-ours);
+  box-shadow: inset 3px 0 0 var(--color-ours);
+}
+.side-theirs {
+  background: var(--bg-theirs);
+  box-shadow: inset 3px 0 0 var(--color-theirs);
+}
 .side-conflict {
-  background: rgba(196, 90, 74, 0.2);
+  background: var(--bg-conflict);
+  box-shadow: inset 3px 0 0 var(--color-conflict);
 }
-
-.chg-resolved,
 .side-resolved {
-  background: rgba(120, 120, 120, 0.1);
+  background: var(--bg-resolved);
+  box-shadow: inset 3px 0 0 rgba(120, 120, 120, 0.55);
 }
 
-.chg-current,
-.side-current {
-  box-shadow: inset 2px 0 0 var(--vscode-focusBorder, #4daafc);
+/* --- result pane --- */
+.chg-ours {
+  background: var(--bg-ours);
+  box-shadow: inset 3px 0 0 var(--color-ours);
+}
+.chg-theirs {
+  background: var(--bg-theirs);
+  box-shadow: inset 3px 0 0 var(--color-theirs);
+}
+.chg-conflict {
+  background: var(--bg-conflict);
+  box-shadow: inset 3px 0 0 var(--color-conflict);
+}
+.chg-resolved {
+  background: var(--bg-resolved);
+  box-shadow: inset 3px 0 0 rgba(120, 120, 120, 0.55);
 }
 
-/* --------------------------------------------- gutter action affordances */
-.act-apply-ours,
-.act-apply-ours-insert,
-.act-apply-theirs,
-.act-apply-theirs-insert,
-.act-ignore {
-  cursor: pointer;
+/* Active block: same accent bar, brighter fill. */
+.side-ours.side-current {
+  background: var(--bg-ours-active);
+}
+.side-theirs.side-current {
+  background: var(--bg-theirs-active);
+}
+.side-conflict.side-current,
+.chg-conflict.chg-current {
+  background: var(--bg-conflict-active);
+}
+.chg-ours.chg-current {
+  background: var(--bg-ours-active);
+}
+.chg-theirs.chg-current {
+  background: var(--bg-theirs-active);
+}
+.side-resolved.side-current,
+.chg-resolved.chg-current {
+  background: rgba(120, 120, 120, 0.18);
+}
+
+/* --------------------------------------------- accept / ignore affordances */
+/* Positioned per-block in drawBands. The ignore (✕) sits INSIDE its code pane
+   at the edge nearest the ribbon; the accept arrow sits just beside it in the
+   gutter, pointing toward the Result:
+     [ main … ✕ ]»  ≈ribbon≈   [ result ]   ≈ribbon≈  «[ ✕ … feature ] */
+.pane-ignore,
+.gutter-accept-ours,
+.gutter-accept-theirs {
+  position: absolute;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   font-weight: bold;
 }
 
-.act-apply-ours::before,
-.act-apply-ours-insert::before {
-  content: "»";
-  color: #57ab5a;
-  font-size: 15px;
-}
-
-.act-apply-theirs::before,
-.act-apply-theirs-insert::before {
-  content: "«";
-  color: #57ab5a;
-  font-size: 15px;
-}
-
-/* Insert (not replace): rotate the arrow diagonally toward the insertion line
-   below the already-accepted content. */
-.act-apply-ours-insert::before {
-  transform: rotate(45deg);
-}
-.act-apply-theirs-insert::before {
-  transform: rotate(-45deg);
-}
-
-.act-ignore::before {
-  content: "✕";
+/* Ignore (✕) — overlaid inside the code pane, at its ribbon-side edge. */
+.pane-ignore {
+  z-index: 3;
   color: var(--vscode-descriptionForeground, #999);
   font-size: 11px;
 }
-
-.act-apply-ours:hover::before,
-.act-apply-theirs:hover::before {
-  color: #7ee787;
-  transform: scale(1.25);
+.pane-ignore-ours {
+  right: 4px;
 }
-.act-apply-ours-insert:hover::before {
-  color: #7ee787;
-  transform: rotate(45deg) scale(1.25);
+.pane-ignore-theirs {
+  left: 4px;
 }
-.act-apply-theirs-insert:hover::before {
-  color: #7ee787;
-  transform: rotate(-45deg) scale(1.25);
+.pane-ignore::before {
+  content: "✕";
 }
-
-.act-ignore:hover::before {
+.pane-ignore:hover {
   color: var(--vscode-errorForeground, #f85149);
 }
 
-/* Thin line in the Result marking where the next accepted side will be inserted. */
-.mr-insert-line {
-  box-shadow: inset 0 -2px 0 0 rgba(87, 171, 90, 0.9);
+/* Accept (» / «) — beside the ✕ but in the gutter, hugging the code pane.
+   Green = accept; the chevron points toward the Result. */
+.gutter-accept-ours,
+.gutter-accept-theirs {
+  z-index: 2;
+  font-size: 15px;
+}
+.gutter-accept-ours {
+  left: 3px;
+}
+.gutter-accept-theirs {
+  right: 3px;
+}
+.gutter-accept-ours::before {
+  content: "»";
+  color: var(--color-ours);
+}
+.gutter-accept-theirs::before {
+  content: "«";
+  color: var(--color-theirs);
+}
+.gutter-accept-ours:hover::before,
+.gutter-accept-theirs:hover::before {
+  transform: scale(1.25);
+  filter: brightness(1.35);
+}
+
+/* Insert (not replace): rotate the chevron diagonally toward the Result's
+   insertion line below the already-accepted content. */
+.gutter-accept-ours.gutter-accept-insert::before {
+  transform: rotate(45deg);
+}
+.gutter-accept-theirs.gutter-accept-insert::before {
+  transform: rotate(-45deg);
+}
+.gutter-accept-ours.gutter-accept-insert:hover::before {
+  transform: rotate(45deg) scale(1.25);
+}
+.gutter-accept-theirs.gutter-accept-insert:hover::before {
+  transform: rotate(-45deg) scale(1.25);
+}
+
+/* Thin line in the Result marking where the next accepted side inserts, colored
+   by that side — pink for ours, green for theirs. */
+.mr-insert-ours {
+  box-shadow: inset 0 -2px 0 0 var(--color-ours);
+}
+.mr-insert-theirs {
+  box-shadow: inset 0 -2px 0 0 var(--color-theirs);
 }
 
 /* --------------------------------------------- word-level highlighting */
