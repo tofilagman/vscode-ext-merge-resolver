@@ -2,7 +2,7 @@
   "name": "merge-resolver",
   "displayName": "Merge Resolver",
   "description": "IntelliJ-style 3-way merge conflict resolver — Yours | Result | Theirs side-by-side, apply non-conflicting changes in one click.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "tofilagman",
   "license": "MIT",
   "icon": "media/icon.png",
