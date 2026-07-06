@@ -42,11 +42,12 @@ Or drag-and-drop the `.vsix` in the web UI. Prefer `export OVSX_PAT=<TOKEN>`
    - https://dev.azure.com → User settings → *Personal Access Tokens*
    - Scope: **Marketplace → Manage**, organization: **All accessible organizations**
    - PAT guide: https://aka.ms/vscodepat
-3. Publish:
+3. Publish the same `.vsix` that was built (a bare `vsce publish` would
+   re-package from source instead):
 
    ```bash
    npx vsce login tofilagman     # paste the PAT once
-   npx vsce publish
+   npx vsce publish --packagePath merge-resolver-<version>.vsix
    ```
 
 Docs: https://code.visualstudio.com/api/working-with-extensions/publishing-extension
