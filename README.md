@@ -29,8 +29,9 @@ for any conflict git records, without parsing `<<<<<<<` markers out of the file.
 - **Aligned panes** with synchronized vertical + horizontal scrolling and
   **curved connecting ribbons** between the changes.
 - **Word-level highlighting** of what changed within a line.
-- **Navigate** unresolved changes with the ↑ / ↓ buttons; a progress readout
-  shows how much is left.
+- **Navigate** unresolved changes with the ↑ / ↓ buttons or `F7` / `Shift+F7`
+  (IntelliJ-style); a progress readout shows how much is left. `Ctrl/Cmd+S`
+  saves & stages once everything is resolved.
 - **Reset** discards every accept/ignore and returns to base.
 - **Save & Stage** writes the result and runs `git add` — enabled only once
   every change is resolved, so a half-resolved file can't be staged.
@@ -38,8 +39,10 @@ for any conflict git records, without parsing `<<<<<<<` markers out of the file.
 ## Usage
 
 1. After a conflicting merge / pull / rebase, open the **Merge Resolver** view in
-   the activity bar — conflicted files are listed there.
-2. Click a file to open the 3-way merge.
+   the activity bar — conflicted files are listed there (across all workspace
+   folders).
+2. Click a file to open the 3-way merge — or focus a conflicted file and run
+   **Merge Resolver: Open 3-Way Merge** from the command palette.
 3. Resolve each change with the gutter arrows (or the Apply buttons), then
    **Save & Stage**.
 

@@ -37,16 +37,22 @@ export class ConflictsProvider
   }
 
   async getChildren(): Promise<ConflictItem[]> {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (!folder) {
-      return [];
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    const seenRoots = new Set<string>();
+    const items: ConflictItem[] = [];
+    for (const folder of folders) {
+      try {
+        const repoRoot = await getRepoRoot(folder.uri.fsPath);
+        if (seenRoots.has(repoRoot)) {
+          continue;
+        }
+        seenRoots.add(repoRoot);
+        const conflicts = await listConflicts(repoRoot);
+        items.push(...conflicts.map((c) => new ConflictItem(repoRoot, c)));
+      } catch {
+        // folder is not inside a git repository — skip it
+      }
     }
-    try {
-      const repoRoot = await getRepoRoot(folder.uri.fsPath);
-      const conflicts = await listConflicts(repoRoot);
-      return conflicts.map((c) => new ConflictItem(repoRoot, c));
-    } catch {
-      return [];
-    }
+    return items;
   }
 }

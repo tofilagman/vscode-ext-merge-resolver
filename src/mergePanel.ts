@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
+import * as crypto from "crypto";
 import { buildMergeModel } from "./merge";
 import { readThreeWay, stageResolved, getMergeBranches } from "./git";
 import type { ConflictFile } from "./git";
@@ -45,7 +46,16 @@ export class MergePanel {
       onResolved
     );
     MergePanel.open.set(file.absolutePath, instance);
-    await instance.init();
+    try {
+      await instance.init();
+    } catch (e) {
+      panel.dispose();
+      vscode.window.showErrorMessage(
+        `Merge Resolver: could not load ${file.relativePath} — ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
+    }
   }
 
   private disposables: vscode.Disposable[] = [];
@@ -70,6 +80,9 @@ export class MergePanel {
       this.repoRoot,
       this.file.relativePath
     );
+    // The merge model is line-based and the webview joins with "\n"; remember
+    // the file's original line ending so save() can restore it.
+    this.eol = /\r\n/.test(ours || theirs || base) ? "\r\n" : "\n";
     const model = buildMergeModel(ours, base, theirs);
     const branches = await getMergeBranches(this.repoRoot);
 
@@ -96,6 +109,7 @@ export class MergePanel {
   }
 
   private initMessage: HostMessage | undefined;
+  private eol: "\n" | "\r\n" = "\n";
 
   private async handleMessage(msg: WebviewMessage): Promise<void> {
     switch (msg.type) {
@@ -114,8 +128,19 @@ export class MergePanel {
   }
 
   private async save(content: string): Promise<void> {
-    await fs.writeFile(this.file.absolutePath, content, "utf8");
-    await stageResolved(this.repoRoot, this.file.relativePath);
+    try {
+      const text =
+        this.eol === "\r\n" ? content.replace(/\r?\n/g, "\r\n") : content;
+      await fs.writeFile(this.file.absolutePath, text, "utf8");
+      await stageResolved(this.repoRoot, this.file.relativePath);
+    } catch (e) {
+      vscode.window.showErrorMessage(
+        `Merge Resolver: failed to save ${this.file.relativePath} — ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
+      return;
+    }
     vscode.window.showInformationMessage(
       `Resolved and staged ${this.file.relativePath}`
     );
@@ -220,11 +245,5 @@ export class MergePanel {
 }
 
 function getNonce(): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let text = "";
-  for (let i = 0; i < 32; i++) {
-    text += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return text;
+  return crypto.randomBytes(24).toString("base64");
 }

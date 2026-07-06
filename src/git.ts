@@ -122,20 +122,19 @@ export async function getMergeBranches(
     // detached HEAD — keep the fallback
   }
 
-  try {
-    const name = (
-      await git(repoRoot, [
-        "name-rev",
-        "--name-only",
-        "--exclude=tags/*",
-        "MERGE_HEAD",
-      ])
-    ).trim();
-    if (name && name !== "undefined") {
-      theirs = name.replace(/[~^].*$/, "");
+  // The incoming ref differs by operation: merge, rebase, or cherry-pick.
+  for (const ref of ["MERGE_HEAD", "REBASE_HEAD", "CHERRY_PICK_HEAD"]) {
+    try {
+      const name = (
+        await git(repoRoot, ["name-rev", "--name-only", "--exclude=tags/*", ref])
+      ).trim();
+      if (name && name !== "undefined") {
+        theirs = name.replace(/[~^].*$/, "");
+        break;
+      }
+    } catch {
+      // ref doesn't exist for the current operation — try the next one
     }
-  } catch {
-    // not a merge (rebase/cherry-pick) or no MERGE_HEAD — keep the fallback
   }
 
   return { ours, theirs };

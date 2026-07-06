@@ -127,8 +127,13 @@ function setup(init: HostMessage): void {
   setHeader("ours-title", "Changes from", init.oursLabel);
   setHeader("theirs-title", "Changes from", init.theirsLabel);
 
-  const theme = matchMedia("(prefers-color-scheme: light)").matches ? "vs" : "vs-dark";
-  monaco.editor.setTheme(theme);
+  // Follow VS Code's theme (it stamps a class on the body), not the OS scheme,
+  // and track live theme switches.
+  monaco.editor.setTheme(vsCodeTheme());
+  new MutationObserver(() => monaco.editor.setTheme(vsCodeTheme())).observe(
+    document.body,
+    { attributes: true, attributeFilter: ["class"] }
+  );
 
   oursModel = monaco.editor.createModel(init.ours, undefined, fileUri("ours/" + init.relativePath));
   theirsModel = monaco.editor.createModel(init.theirs, undefined, fileUri("theirs/" + init.relativePath));
@@ -201,6 +206,17 @@ function setup(init: HostMessage): void {
   if (fonts?.ready) {
     fonts.ready.then(scheduleRedraw).catch(() => {});
   }
+}
+
+function vsCodeTheme(): string {
+  const cls = document.body.classList;
+  if (cls.contains("vscode-high-contrast-light")) {
+    return "hc-light";
+  }
+  if (cls.contains("vscode-high-contrast")) {
+    return "hc-black";
+  }
+  return cls.contains("vscode-light") ? "vs" : "vs-dark";
 }
 
 function setHeader(id: string, prefix: string, label: string): void {
@@ -935,6 +951,18 @@ function wireToolbar(): void {
   document.getElementById("reset")?.addEventListener("click", resetAll);
   document.getElementById("save")!.addEventListener("click", save);
   document.getElementById("toast-save")?.addEventListener("click", save);
+
+  // IntelliJ-style navigation: F7 next / Shift+F7 previous. Ctrl/Cmd+S saves
+  // once every change is resolved (save() is a no-op otherwise).
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "F7") {
+      e.preventDefault();
+      step(e.shiftKey ? -1 : 1);
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      save();
+    }
+  });
 }
 
 function setCount(id: string, n: number): void {
