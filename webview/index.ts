@@ -63,6 +63,7 @@ let current = -1;
 let oursDecoIds: string[] = [];
 let theirsDecoIds: string[] = [];
 let resultArrowIds: string[] = [];
+let resultEdgeIds: string[] = [];
 let oursZoneIds: string[] = [];
 let resultZoneIds: string[] = [];
 let theirsZoneIds: string[] = [];
@@ -169,7 +170,15 @@ function setup(init: HostMessage): void {
     readOnly: true,
     scrollbar: { vertical: "hidden" },
   });
-  resultEditor = monaco.editor.create(document.getElementById("result")!, { ...common, model: resultModel, readOnly: false });
+  // The Result keeps an overview ruler: change marks in the scrollbar act as an
+  // IntelliJ-style map of the whole merge (colored per side, gray = resolved).
+  resultEditor = monaco.editor.create(document.getElementById("result")!, {
+    ...common,
+    model: resultModel,
+    readOnly: false,
+    overviewRulerLanes: 1,
+    hideCursorInOverviewRuler: true,
+  });
 
   // One tracked decoration per block so its result range follows edits.
   const ids = resultModel.deltaDecorations(
@@ -395,6 +404,45 @@ function resultClass(b: Block, active: boolean): string {
   return active ? `${base} chg-current` : base;
 }
 
+// Color identity of a block as seen from one pane — drives block frames,
+// deletion seams and the overview ruler.
+type EdgeKind = "ours" | "theirs" | "conflict" | "resolved";
+
+function sideKind(b: Block, side: Side): EdgeKind {
+  return isResolved(b) ? "resolved" : b.type === "conflict" ? "conflict" : side === "ours" ? "ours" : "theirs";
+}
+function resultKind(b: Block): EdgeKind {
+  return isResolved(b) ? "resolved" : b.type === "conflict" ? "conflict" : hasLeft(b.type) ? "ours" : "theirs";
+}
+
+const RULER_COLOR: Record<EdgeKind, string> = {
+  ours: "rgba(244, 114, 208, 0.85)",
+  theirs: "rgba(74, 222, 128, 0.85)",
+  conflict: "rgba(251, 191, 36, 0.9)",
+  resolved: "rgba(120, 120, 120, 0.5)",
+};
+
+/**
+ * IntelliJ-style block frame: a hairline top border on the first line and a
+ * bottom border on the last line, so every change reads as a crisp box instead
+ * of a bare background wash. Border color comes from the ec-* class via a CSS
+ * variable (border-top and border-bottom are distinct properties, so both
+ * decorations can land on the same line for 1-line blocks).
+ */
+function edgeDecos(range: monaco.IRange, kind: EdgeKind, currentBlock: boolean): monaco.editor.IModelDeltaDecoration[] {
+  const cls = `ec-${kind}${currentBlock ? " ec-cur" : ""}`;
+  return [
+    {
+      range: { startLineNumber: range.startLineNumber, startColumn: 1, endLineNumber: range.startLineNumber, endColumn: 1 },
+      options: { isWholeLine: true, className: `blk-top ${cls}` },
+    },
+    {
+      range: { startLineNumber: range.endLineNumber, startColumn: 1, endLineNumber: range.endLineNumber, endColumn: 1 },
+      options: { isWholeLine: true, className: `blk-bottom ${cls}` },
+    },
+  ];
+}
+
 function render(): void {
   const live = blocks.map((b) => resultModel.getDecorationRange(b.resultId));
   const resultDecos: monaco.editor.IModelDeltaDecoration[] = blocks.map((b, i) => {
@@ -404,11 +452,28 @@ function render(): void {
     };
     if (b.isChange) {
       options.className = resultClass(b, i === current);
+      options.overviewRuler = {
+        color: RULER_COLOR[resultKind(b)],
+        position: monaco.editor.OverviewRulerLane.Full,
+      };
     }
     return { range: live[i] ?? new monaco.Range(1, 1, 1, 1), options };
   });
   const newIds = resultModel.deltaDecorations(blocks.map((b) => b.resultId), resultDecos);
   newIds.forEach((id, i) => (blocks[i].resultId = id));
+
+  // Block frames in the Result (rebuilt from the live tracked ranges).
+  const resultEdges: monaco.editor.IModelDeltaDecoration[] = [];
+  blocks.forEach((b, i) => {
+    if (!b.isChange) {
+      return;
+    }
+    const r = resultModel.getDecorationRange(b.resultId);
+    if (r) {
+      resultEdges.push(...edgeDecos(r, resultKind(b), i === current));
+    }
+  });
+  resultEdgeIds = resultModel.deltaDecorations(resultEdgeIds, resultEdges);
 
   // The insertion line lives in a separate (untracked) collection so its anchor
   // line can differ from the tracked region decoration.
@@ -449,6 +514,29 @@ function resultInsertLineDecos(): monaco.editor.IModelDeltaDecoration[] {
   return decos;
 }
 
+/**
+ * A change block whose side has zero lines is a pure deletion there — mark the
+ * seam with a thin colored line (IntelliJ shows deletions the same way) so the
+ * block is still visible and clickable on that side.
+ */
+function deletionSeam(start: number, side: Side, kind: EdgeKind, currentBlock: boolean): monaco.editor.IModelDeltaDecoration {
+  const model = side === "ours" ? oursModel : theirsModel;
+  const cls = `ec-${kind}${currentBlock ? " ec-cur" : ""}`;
+  // The deleted region sits between lines start-1 and start: draw on the
+  // bottom edge of the previous line, or the top edge of line 1.
+  if (start <= 1) {
+    return {
+      range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 },
+      options: { isWholeLine: true, className: `del-top ${cls}` },
+    };
+  }
+  const ln = Math.min(start - 1, model.getLineCount());
+  return {
+    range: { startLineNumber: ln, startColumn: 1, endLineNumber: ln, endColumn: 1 },
+    options: { isWholeLine: true, className: `del-bottom ${cls}` },
+  };
+}
+
 function sideDecos(side: Side): monaco.editor.IModelDeltaDecoration[] {
   const decos: monaco.editor.IModelDeltaDecoration[] = [];
   blocks.forEach((b, i) => {
@@ -459,11 +547,14 @@ function sideDecos(side: Side): monaco.editor.IModelDeltaDecoration[] {
     if (!relevant) {
       return;
     }
+    const active = i === current;
+    const kind = sideKind(b, side);
     const range = side === "ours" ? oursRangeOf(b) : theirsRangeOf(b);
     if (!range) {
+      // This side deleted the region — no lines to tint, mark the seam instead.
+      decos.push(deletionSeam(side === "ours" ? b.oursStart : b.theirsStart, side, kind, active));
       return;
     }
-    const active = i === current;
     // Color by origin: ours pink, theirs green. Conflicts override to yellow so
     // they stand out from ordinary one-sided changes; resolved fades to gray.
     const cls =
@@ -475,6 +566,7 @@ function sideDecos(side: Side): monaco.editor.IModelDeltaDecoration[] {
         ? "side-ours"
         : "side-theirs") + (active ? " side-current" : "");
     decos.push({ range, options: { isWholeLine: true, className: cls } });
+    decos.push(...edgeDecos(range, kind, active));
 
     // Theirs accept (« ) and ignore (✕) are rendered as overlays in the right
     // gutter (see drawBands), mirroring the left side — not as editor gutter
@@ -500,6 +592,9 @@ function addWordDiff(out: monaco.editor.IModelDeltaDecoration[], b: Block, side:
   if (sideLines.length !== b.base.length || sideLines.length === 0) {
     return; // fall back to whole-line highlight
   }
+  // Inner highlight carries the block's identity: side color normally, amber
+  // inside conflicts (IntelliJ's "changed words" emphasis).
+  const wd = b.type === "conflict" ? "wd-conflict" : side === "ours" ? "wd-ours" : "wd-theirs";
   for (let k = 0; k < sideLines.length; k++) {
     if (sideLines[k] === b.base[k]) {
       continue;
@@ -507,7 +602,7 @@ function addWordDiff(out: monaco.editor.IModelDeltaDecoration[], b: Block, side:
     for (const [s, e] of changedRanges(b.base[k], sideLines[k])) {
       out.push({
         range: { startLineNumber: startLine + k, startColumn: s + 1, endLineNumber: startLine + k, endColumn: e + 1 },
-        options: { className: "word-diff", inlineClassName: "word-diff" },
+        options: { inlineClassName: `word-diff ${wd}` },
       });
     }
   }
@@ -660,24 +755,40 @@ function regionY(
   len: number,
   scroll: number
 ): { top: number; bottom: number } {
+  const lh = editor.getOption(monaco.editor.EditorOption.lineHeight);
+  if (len <= 0) {
+    // Pure deletion: the region is a boundary between lines. `start` can sit
+    // one past EOF (deletion at end of file) — clamp to the last line's bottom.
+    const lineCount = editor.getModel()?.getLineCount() ?? 1;
+    const top =
+      start <= lineCount
+        ? editor.getTopForLineNumber(start) - scroll
+        : editor.getTopForLineNumber(lineCount) + lh - scroll;
+    return { top, bottom: top };
+  }
   const top = editor.getTopForLineNumber(start) - scroll;
   // Use the last *content* line's bottom, NOT getTopForLineNumber(start+len):
   // alignment view zones are inserted after a region, and the next line's top
   // sits below that padding — which would inflate a short region to full height
   // and flatten the ribbon into a rectangle instead of a curved wedge.
-  const lh = editor.getOption(monaco.editor.EditorOption.lineHeight);
-  const bottom = len > 0 ? editor.getTopForLineNumber(start + len - 1) - scroll + lh : top;
+  const bottom = editor.getTopForLineNumber(start + len - 1) - scroll + lh;
   return { top, bottom };
 }
 
 // Ribbons carry side identity, matching the pane tints: the ours ribbon (left
 // gutter) is pink, the theirs ribbon (right gutter) is green; both fade to gray
-// once the change is resolved.
-function fillFor(resolved: boolean, side: Side): string {
+// once the change is resolved. A hairline stroke frames each ribbon so it meets
+// the blocks' border lines cleanly (IntelliJ/Meld draw their connectors framed
+// the same way); the current block's ribbon brightens.
+function ribbonStyle(resolved: boolean, side: Side, currentBlock: boolean): { fill: string; stroke: string } {
   if (resolved) {
-    return "rgba(120,120,120,0.18)";
+    return { fill: "rgba(120,120,120,0.14)", stroke: "rgba(120,120,120,0.38)" };
   }
-  return side === "ours" ? "rgba(244,114,208,0.45)" : "rgba(74,222,128,0.45)";
+  const c = side === "ours" ? "244,114,208" : "74,222,128";
+  return {
+    fill: `rgba(${c},${currentBlock ? 0.55 : 0.33})`,
+    stroke: `rgba(${c},${currentBlock ? 0.95 : 0.55})`,
+  };
 }
 
 
@@ -743,10 +854,13 @@ function drawBands(): void {
 
     // Draw a gutter ribbon only on the side that actually changed: ours (left)
     // for left/both/conflict, theirs (right) for right/conflict. This keeps the
-    // opposite gutter empty for a one-sided change.
-    if (hasLeft(b.type) && b.oursLen > 0) {
+    // opposite gutter empty for a one-sided change. Zero-length sides (pure
+    // deletions) still get a collapsed ribbon + buttons anchored at the seam.
+    if (hasLeft(b.type)) {
       const oY = regionY(oursEditor, b.oursStart, b.oursLen, scroll);
-      svgL.appendChild(ribbon(oY.top, oY.bottom, resY.top, resY.bottom, w, fillFor(resolved, "ours")));
+      svgL.appendChild(
+        ribbon(oY.top, oY.bottom, resY.top, resY.bottom, w, ribbonStyle(resolved, "ours", i === current), () => goTo(i))
+      );
 
       // ✕ inside the Main pane (right edge); » beside it in the gutter.
       if (!handled(b, "ours") && onScreen(oY.top)) {
@@ -759,9 +873,11 @@ function drawBands(): void {
         }
       }
     }
-    if (hasRight(b.type) && b.theirsLen > 0) {
+    if (hasRight(b.type)) {
       const tY = regionY(theirsEditor, b.theirsStart, b.theirsLen, scroll);
-      svgR.appendChild(ribbon(resY.top, resY.bottom, tY.top, tY.bottom, w, fillFor(resolved, "theirs")));
+      svgR.appendChild(
+        ribbon(resY.top, resY.bottom, tY.top, tY.bottom, w, ribbonStyle(resolved, "theirs", i === current), () => goTo(i))
+      );
 
       // ✕ inside the Feature pane (left edge); « beside it in the gutter.
       if (!handled(b, "theirs") && onScreen(tY.top)) {
@@ -781,9 +897,17 @@ function drawBands(): void {
  * A ribbon from the left edge (l0..l1) to the right edge (r0..r1), with the top
  * and bottom edges drawn as cubic Béziers (control points at mid-x) so the
  * connectors curve smoothly like the native diff editor's, instead of sloping
- * straight.
+ * straight. Ribbons are clickable and navigate to their block.
  */
-function ribbon(l0: number, l1: number, r0: number, r1: number, w: number, fill: string): SVGPathElement {
+function ribbon(
+  l0: number,
+  l1: number,
+  r0: number,
+  r1: number,
+  w: number,
+  style: { fill: string; stroke: string },
+  onNavigate: () => void
+): SVGPathElement {
   const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
   const lb = Math.max(l1, l0 + 1); // left-bottom (min 1px tall)
   const rb = Math.max(r1, r0 + 1); // right-bottom
@@ -796,7 +920,14 @@ function ribbon(l0: number, l1: number, r0: number, r1: number, w: number, fill:
     `C${cx},${f(rb)} ${cx},${f(lb)} 0,${f(lb)} ` + // bottom edge, right→left
     `Z`;
   p.setAttribute("d", d);
-  p.setAttribute("fill", fill);
+  p.setAttribute("fill", style.fill);
+  p.setAttribute("stroke", style.stroke);
+  p.setAttribute("stroke-width", "1");
+  p.classList.add("ribbon");
+  p.addEventListener("mousedown", (ev) => {
+    ev.preventDefault();
+    onNavigate();
+  });
   return p;
 }
 
